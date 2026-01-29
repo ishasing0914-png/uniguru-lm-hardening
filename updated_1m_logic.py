@@ -1,77 +1,88 @@
-# updated_lm_logic.py
-# Purpose: Deterministic safety + robustness layer for UniGuru LM
+# UniGuru LM Safety + Deterministic Layer
 
+# -------- Ambiguity Detection --------
 def detect_ambiguity(user_input):
-    ambiguous_phrases = [
-        "explain this",
-        "tell me everything",
-        "do it",
-        "help me",
-        "what about this"
-    ]
-    return user_input.lower().strip() in ambiguous_phrases
+    text = user_input.lower().strip()
+
+    if len(text.split()) <= 2:
+        return True
+
+    vague_words = ["explain", "help", "tell", "this", "that"]
+
+    return any(word == text for word in vague_words)
 
 
+# -------- Emotional Detection --------
 def detect_emotional_distress(user_input):
+    text = user_input.lower()
+
     emotional_markers = [
         "i feel useless",
-        "i am lost",
-        "i want to quit",
-        "i can't do this",
-        "i feel hopeless"
+        "i feel sad",
+        "i am stressed",
+        "i feel depressed",
+        "i want to give up",
+        "i feel hopeless",
+        "i am a failure",
+        "i feel low"
     ]
-    return any(marker in user_input.lower() for marker in emotional_markers)
+
+    return any(marker in text for marker in emotional_markers)
 
 
+# -------- Unsafe Request Detection --------
 def detect_unsafe_request(user_input):
+    text = user_input.lower()
+
     unsafe_keywords = [
         "cheat",
         "hack",
-        "illegal",
-        "bypass",
-        "fake certificate"
+        "exam leak",
+        "paper leak",
+        "fake certificate",
+        "bypass exam",
+        "steal",
+        "copy in exam"
     ]
-    return any(word in user_input.lower() for word in unsafe_keywords)
+
+    return any(word in text for word in unsafe_keywords)
 
 
-def deterministic_fallback(reason):
-    return f"[SAFE_FALLBACK] Unable to proceed due to: {reason}"
+# -------- Deterministic Fallback --------
+def deterministic_fallback():
+    return (
+        "I’m not able to answer that properly right now. "
+        "Please rephrase your question."
+    )
 
 
+# -------- MAIN FUNCTION --------
 def generate_safe_response(user_input, lm_generate_fn):
-    """
-    Central LM entry point.
-    This MUST be used instead of calling the LM directly.
-    """
 
-    # 1️⃣ Ambiguity handling
-    if detect_ambiguity(user_input):
-        return "Could you please clarify your question so I can help you better?"
+    # Priority 1: Unsafe
+    if detect_unsafe_request(user_input):
+        return "I can’t help with that request because it violates learning ethics."
 
-    # 2️⃣ Emotional safety handling
+    # Priority 2: Emotional
     if detect_emotional_distress(user_input):
         return (
-            "I’m really sorry you’re feeling this way. "
-            "You’re not alone, and it’s okay to pause. "
-            "If you’d like, we can take this one small step at a time."
+            "I’m sorry you're feeling this way. "
+            "Let’s take it one step at a time. You’re not alone."
         )
 
-    # 3️⃣ Unsafe request handling
-    if detect_unsafe_request(user_input):
-        return (
-            "I can’t help with that request because it goes against "
-            "learning and ethical guidelines."
-        )
+    # Priority 3: Ambiguous
+    if detect_ambiguity(user_input):
+        return "Could you clarify your question so I can help properly?"
 
-    # 4️⃣ Normal LM execution
+    # Normal LM call
     try:
         response = lm_generate_fn(user_input)
+        response = response.strip()
 
-        # 5️⃣ Silent failure protection
-        if response is None or len(response.strip()) < 5:
-            return deterministic_fallback("Low-quality or empty response")
+        if len(response) < 5:
+            return deterministic_fallback()
 
         return response
 
-    except Exception as e:
-        return deterministic_fallback(str(e))
+    except Exception:
+        return deterministic_fallback()
