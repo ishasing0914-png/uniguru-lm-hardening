@@ -125,3 +125,6 @@ Sovereign separation confirmed.
 
 System stable under real usage simulation.
 Ready for demo.
+
+Note:
+Tests were run after implementing deterministic safety rules in updated_lm_logic.py to verify behavior changes.
